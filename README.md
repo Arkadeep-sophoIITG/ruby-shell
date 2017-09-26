@@ -2,8 +2,8 @@
 ===============
 
 ## **Team Mates**
-- Abhishek Jain
-- Pradyumna Kaushik
+- Arpan Gupta
+- Rishabh Agarwal 
 
 ## **Software Requirements**
 - GCC version 5.2.0 and upwards.
@@ -29,6 +29,25 @@ Note: *Any lower version may result in underfined behaviour including compilatio
   ```
   make clean
   ```
+
+
+## **Bash commands supported **
+
+- ls
+- cd (All types)
+- pwd
+- cat
+- mkdir
+- rm (-r, -f, -v)
+- history (retrieves history of all user commands)
+- history n (prints the most recent n commands issued by the numbers)
+- issue n (issues the nth command in the history once again)
+- <program_name> (Creates a child process to run <program_name>. Supports the
+redirection operators > and < to redirect the input and ouput of the
+program to indicated files)
+- exit 
+and all other basic bash commands
+
 
 ## **Fallback Compilation Instructions if 'make' fails**
 NOTE: *SKIP THIS SECTION IF make was successful i.e. if make did not throw errors.*
