@@ -1,4 +1,4 @@
-# **Minishell**
+# **Rubyshell**
 ===============
 
 ## **Team Mates**
