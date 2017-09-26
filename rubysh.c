@@ -176,6 +176,37 @@ int search(pjid_list* l, int pid){
 	}
 }
 
+void print_n_histories(history_list *hist,char* line)
+{
+	history_info* temp = hist->head;
+		 long long int history_cnt=1;
+		 if(line[strlen(line)-1] - '0' > hist->size)
+			 	{
+			 			printf("%s\n","Command history non-existent" );
+			 	}
+			 else
+			 {
+			while(temp->next != NULL ){
+				if(history_cnt==hist->size-(line[strlen(line)-1]-'0'))
+				{
+					printf("%s   %s\n","Executing command",temp->command );
+					while(temp->next !=NULL)
+					{
+						printf("%s\n",temp->command );
+						temp=temp->next;
+					}
+					break;
+
+				}
+				else
+				{
+				temp = temp->next;
+				history_cnt++;
+			}
+		}
+}
+}
+
 
 char* print_history_item(history_list *hist, char *line,short z)
 {
@@ -798,7 +829,8 @@ void ruby_listener(){
 		   try to make it for multiple digit numbers*/
 		else if(strstr(line,"history")!=NULL && strcmp(line,"history")!=0)
 		{
-			print_history_item(hist,line,1);	
+			// print_history_item(hist,line,1);
+			print_n_histories(hist,line);	
 		}
 
 		else if(strstr(line,"issue")!=NULL)
