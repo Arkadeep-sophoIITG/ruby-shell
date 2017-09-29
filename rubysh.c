@@ -12,38 +12,52 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <time.h>
 
-#define  _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 500
-
-void ruby_listener();
+#define  _POSIX_C_SOURCE 200809L
 
 int execute(char *, char *);
 
-//variable to store the current working directory
-char pwd[1000];
+void ruby_listener();
 
 //global job id
 int job_id = 1;
 
-//background process group
-int bg_pgrp = -1;
+//variable to store the current working directory
+char pwd[1000];
+
+//current foreground command
+char *cur_fg_cmd;
 
 //current foreground process
 int cur_fg_pid = -1;
-//current foreground command
-char *cur_fg_cmd;
+
+//background process group
+int bg_pgrp = -1;
+
+
 //current foreground pid
 int cur_bg_pid = -1;
+
+//flag for time
+bool global_time_flag = false;
+
 //current background command
+
 char *cur_bg_command;
+
+
+//variable to indicate whether prompt needs to be shown
+int prompt_disp = 0;
+
+//global variable to indicate latest job_id
+int latest_jobid = -1;
 
 //variable to indicate whether parent process can wait for the child to complete
 int can_wait = 1;
-//variable to indicate whether prompt needs to be shown
-int prompt_disp = 0;
-//global variable to indicate latest job_id
-int latest_jobid = -1;
+
+
 //process structure
 typedef struct proc_info {
     pid_t pid;
@@ -156,7 +170,7 @@ int is_empty(pjid_list *l) {
     return 0;
 }
 
-//search whether process given by pid is present in the process list 
+//search whether process given by pid is present in the process list
 int search(pjid_list *l, int pid) {
     if (l->head == NULL) {
         return 0;
@@ -173,15 +187,44 @@ int search(pjid_list *l, int pid) {
     }
 }
 
+int extract_integer(char *str) {
+    char *p = str;
+    int val = 0;
+    while (*p) { // While there are more characters to process...
+        if (isdigit(*p)) { // Upon finding a digit, ...
+            val = (int) strtol(p, &p, 10); // Read a number, ...
+        } else { // Otherwise, move on to the next character.
+            p++;
+        }
+    }
+    // printf("%d\n",val);
+    return val;
+}
+
+
+double get_double(char *str) {
+
+    /* First skip non-digit characters */
+    /* Special case to handle negative numbers */
+    str = strrchr(str, (char) 32);
+    while (*str && !(isdigit(*str) || ((*str == '-' || *str == '+') && isdigit(*(str + 1)))))
+        str++;
+
+    /* The parse to a double */
+    return strtod(str, NULL);
+}
+
+
 void print_n_histories(history_list *hist, char *line) {
     history_info *temp = hist->head;
     long long int history_cnt = 1;
-    if (line[strlen(line) - 1] - '0' > hist->size) {
+    int val = extract_integer(line);
+    if (val > hist->size) {
         printf("%s\n", "Command history non-existent");
     } else {
         while (temp->next != NULL) {
-            if (history_cnt == hist->size - (line[strlen(line) - 1] - '0')) {
-                printf("%s   %s\n", "Executing command", temp->command);
+            if (history_cnt == hist->size - (val)) {
+                // printf("%s   %s\n", "Executing command", temp->command);
                 while (temp->next != NULL) {
                     printf("%s\n", temp->command);
                     temp = temp->next;
@@ -200,7 +243,8 @@ void print_n_histories(history_list *hist, char *line) {
 char *print_history_item(history_list *hist, char *line, short z) {
     history_info *temp = hist->head;
     long long int history_cnt = 1;
-    if (line[strlen(line) - 1] - '0' > hist->size) {
+    int val = extract_integer(line);
+    if (val > hist->size) {
         if (z == 1) {
             printf("%s\n", "History non-existent");
             return NULL;
@@ -210,12 +254,12 @@ char *print_history_item(history_list *hist, char *line, short z) {
         }
     } else {
         while (temp->next != NULL) {
-            if (history_cnt == line[strlen(line) - 1] - '0') {
+            if (history_cnt == val) {
                 if (z == 1) {
                     printf("%s\n", temp->command);
                     return temp->command;
                 } else {
-                    printf("%s   %s\n", "Executing command", temp->command);
+                    // printf("%s   %s\n", "Executing command", temp->command);
                     return temp->command;
                 }
             } else {
@@ -255,7 +299,7 @@ void retrieve_all_histories(history_list *h) {
     }
 }
 
-/* Bugs- more than two nested issue statements not working 
+/* Bugs- more than two nested issue statements not working
 Although implemented , check */
 char *retrieve_issue_cmd(history_list *h, char *command) {
     char *array[h->size - 1];
@@ -271,69 +315,59 @@ char *retrieve_issue_cmd(history_list *h, char *command) {
     // strcpy(command,array[command[strlen(command)-1]-'0'-1]);
     // for (int i = 0; i < h->size-1; ++i)
     // {
-    // 	printf("%s\n",array[i] );
+    //  printf("%s\n",array[i] );
     // }
-    strcpy(command, array[command[strlen(command) - 1] - '0' - 1]);
+    strcpy(command, array[extract_integer(command) - 1]);
     // while(strstr(command,"issue")!=NULL)
     // {
-    // 	char *s=array[command[strlen(command)-1]-'0'-1];
-    // 	strcpy(command,s);
+    //  char *s=array[command[strlen(command)-1]-'0'-1];
+    //  strcpy(command,s);
     // }
-    for (int i = 0; i < h->size-1; ++i)
-    {
-    	/* code */
-    	free(array[i]);
+    for (int i = 0; i < h->size - 1; ++i) {
+        /* code */
+        free(array[i]);
     }
     return command;
 }
 
-//delete information for a process from the process list
-void delete(pjid_list *l, pid_t pid)
-{
-if(l->head == NULL){
-   return;
-}
-else if(pid == -1) return;
-else if(search(l, pid) == 0){
-   return;
-}
-else if(l->head == l->tail){
-   if(l->head->pid == pid){
-       proc_info *temp = l->head;
-       l->head = NULL;
-       l->tail = NULL;
-       // free(temp);
-   }
-else return;
-}
-else if(l->head->pid == pid){
-   proc_info *temp = l->head;
-   l->head = l->head->next;
-   temp->next = NULL;
-   // free(temp);
-}
-else{
-   proc_info *temp = l->head;
-   proc_info *prev = temp;
-   while(temp->next !=NULL && temp->pid != pid){
-       prev = temp;
-       temp = temp->next;
-   }
-   if(temp->pid == pid){
-       if(temp == l->tail){
-           prev->next = NULL;
-           l->tail = prev;
-           // free(temp);
-       }
-   else{
-       prev->next = temp->next;
-       temp->next = NULL;
-       // free(temp);
-       }
-   }
-else return;
-}
-l->size--;
+//delete information for a process from the process list 
+void delete(pjid_list *l, pid_t pid) {
+    if (l->head == NULL) {
+        return;
+    } else if (pid == -1) return;
+    else if (search(l, pid) == 0) { return; }
+    else if (l->head == l->tail) {
+        if (l->head->pid == pid) {
+            proc_info *temp = l->head;
+            l->head = NULL;
+            l->tail = NULL;
+            free(temp);
+        } else return;
+    } else if (l->head->pid == pid) {
+        proc_info *temp = l->head;
+        l->head = l->head->next;
+        temp->next = NULL;
+        free(temp);
+    } else {
+        proc_info *temp = l->head;
+        proc_info *prev = temp;
+        while (temp->next != NULL && temp->pid != pid) {
+            prev = temp;
+            temp = temp->next;
+        }
+        if (temp->pid == pid) {
+            if (temp == l->tail) {
+                prev->next = NULL;
+                l->tail = prev;
+                free(temp);
+            } else {
+                prev->next = temp->next;
+                temp->next = NULL;
+                free(temp);
+            }
+        } else return;
+    }
+    l->size--;
 }
 
 
@@ -393,15 +427,6 @@ pjid_list *l;
 //global reference to history list
 history_list *hist;
 
-//retrieve command line input
-char *command_extractor(void) {
-    char *line = NULL;
-    size_t bufsize = 0;
-    getline(&line, &bufsize, stdin);
-    insert_history(hist, line);
-    return line;
-}
-
 //extract job id from command
 int get_job_id(char *line) {
     char *line1 = (char *) malloc(sizeof(char));
@@ -419,9 +444,54 @@ int get_job_id(char *line) {
     tokens[i] = NULL;
     job_id = atoi(tokens[1]);
     free(line1);
-    
+
     return job_id;
 
+}
+
+//retrieve command line input
+char *command_extractor(void) {
+    char *line = NULL;
+    size_t bufsize = 0;
+    getline(&line, &bufsize, stdin);
+    insert_history(hist, line);
+    return line;
+}
+
+
+//check whether command is a foreground command using regex
+int is_fg(char *line) {
+
+    regex_t regex2;
+    regex_t regex3;
+    int reti3, reti4;
+    /* Compile regular expression */
+    reti3 = regcomp(&regex2, "^[[:space:]]*fg[[:space:]]+%[[:space:]]*[[:digit:]]+[[:space:]]*$", REG_EXTENDED);
+    reti4 = regcomp(&regex3, "^[[:space:]]*fg[[:space:]]*$", REG_EXTENDED);
+
+    if (reti3) {
+        return -1;
+    }
+    if (reti4) {
+        return -1;
+    }
+    reti3 = regexec(&regex2, line, 0, NULL, 0);
+    if (!reti3) {
+        int job_id = get_job_id(line);
+        return job_id;
+
+    } else if (reti3 == REG_NOMATCH) {}
+    else {
+        return -1;
+    }
+    reti4 = regexec(&regex3, line, 0, NULL, 0);
+    if (!reti4) {
+        return latest_jobid;
+    } else if (reti4 == REG_NOMATCH) {
+        return -1;
+    } else {
+        return -1;
+    }
 }
 
 //check whether command is a background command using regex
@@ -459,62 +529,6 @@ int is_bg(char *line) {
     }
 }
 
-//check whether command is a foreground command using regex
-int is_fg(char *line) {
-
-    regex_t regex2;
-    regex_t regex3;
-    int reti3, reti4;
-    /* Compile regular expression */
-    reti3 = regcomp(&regex2, "^[[:space:]]*fg[[:space:]]+%[[:space:]]*[[:digit:]]+[[:space:]]*$", REG_EXTENDED);
-    reti4 = regcomp(&regex3, "^[[:space:]]*fg[[:space:]]*$", REG_EXTENDED);
-
-    if (reti3) {
-        return -1;
-    }
-    if (reti4) {
-        return -1;
-    }
-    reti3 = regexec(&regex2, line, 0, NULL, 0);
-    if (!reti3) {
-        int job_id = get_job_id(line);
-        return job_id;
-
-    } else if (reti3 == REG_NOMATCH) {}
-    else {
-        return -1;
-    }
-    reti4 = regexec(&regex3, line, 0, NULL, 0);
-    if (!reti4) {
-        return latest_jobid;
-    } else if (reti4 == REG_NOMATCH) {
-        return -1;
-    } else {
-        return -1;
-    }
-}
-
-//handler for Ctrl-C (SIGINT signal)
-void my_sigint_handler(int sig_number) {
-    can_wait = 0;
-    if (cur_fg_pid != -1) {
-        kill(cur_fg_pid, SIGKILL);
-    } else {
-        delete (l, cur_fg_pid);
-    }
-    latest_jobid = -1;
-    cur_fg_pid = -1;
-    cur_fg_cmd = NULL;
-    char *prompt_name = "\nabsgibson:";
-    char new_prompt_name[strlen(prompt_name) + strlen(pwd) + 2];
-    strcpy(new_prompt_name, prompt_name);
-    strcat(new_prompt_name, pwd);
-    strcat(new_prompt_name, "> ");
-    fwrite(new_prompt_name, sizeof(char), strlen(new_prompt_name) + 1, stdout);
-    prompt_disp = 1;
-    fflush(stdout);
-    return;
-}
 
 //handler for Ctrl-Z (SIGTSTP signal)
 void my_sigtstp_handler(int signo) {
@@ -544,33 +558,31 @@ void my_sigtstp_handler(int signo) {
     return;
 }
 
-
-//send process to background process group from suspended state
-int send_to_background(int jid) {
-    proc_info *p = get_proc(l, jid);
-    //if jobid invalid
-    if (p == NULL) {
-        return -1;
+//handler for Ctrl-C (SIGINT signal)
+void my_sigint_handler(int sig_number) {
+    can_wait = 0;
+    if (cur_fg_pid != -1) {
+        kill(cur_fg_pid, SIGKILL);
+    } else {
+        delete(l, cur_fg_pid);
     }
-    //only a suspended can be continued in background
-    if (p->status != 3) {
-        return -1;
-    }
-    //need to change the process group of the process to the background process group and then need to send a SIGCONT signal to the process. We return back to the prompt immediately and don't wait.
-    setpgid(p->pid, bg_pgrp);
-    cur_bg_pid = p->pid;
-    int k = kill(p->pid, SIGCONT);
-    if (k == -1) {
-        perror("error");
-        return -1;
-    }
-    update(p, p->pid, 2);
-    return 1;
+    latest_jobid = -1;
+    cur_fg_pid = -1;
+    cur_fg_cmd = NULL;
+    char *prompt_name = "\nabsgibson:";
+    char new_prompt_name[strlen(prompt_name) + strlen(pwd) + 2];
+    strcpy(new_prompt_name, prompt_name);
+    strcat(new_prompt_name, pwd);
+    strcat(new_prompt_name, "> ");
+    fwrite(new_prompt_name, sizeof(char), strlen(new_prompt_name) + 1, stdout);
+    prompt_disp = 1;
+    fflush(stdout);
+    return;
 }
 
 
 //send process to foreground process group (either from suspended state of from background process group)
-int send_to_foreground(int jid) {
+int send_to_fg(int jid) {
     proc_info *p = get_proc(l, jid);
     if (p == NULL) {
         return -1;
@@ -588,7 +600,7 @@ int send_to_foreground(int jid) {
         if (p->status != 3 && can_wait == 1) {
             kill(cur_fg_pid, SIGKILL);
             printf("\n[%d] done!\t%s\n", p->jid, p->command);
-            delete (l, cur_fg_pid);
+            delete(l, cur_fg_pid);
             latest_jobid = -1;
         }
         cur_fg_pid = -1;
@@ -609,7 +621,7 @@ int send_to_foreground(int jid) {
             kill(cur_fg_pid, SIGKILL);
             proc_info *p = get_proc(l, cur_fg_pid);
             printf("\n[%d] done!\t%s\n", p->jid, p->command);
-            delete (l, cur_fg_pid);
+            delete(l, cur_fg_pid);
         }
         cur_bg_pid = -1;
         latest_jobid = -1;
@@ -620,6 +632,28 @@ int send_to_foreground(int jid) {
     return -1;
 }
 
+//send process to background process group from suspended state
+int send_to_bg(int jid) {
+    proc_info *p = get_proc(l, jid);
+    //if jobid invalid
+    if (p == NULL) {
+        return -1;
+    }
+    //only a suspended can be continued in background
+    if (p->status != 3) {
+        return -1;
+    }
+    //need to change the process group of the process to the background process group and then need to send a SIGCONT signal to the process. We return back to the prompt immediately and don't wait.
+    setpgid(p->pid, bg_pgrp);
+    cur_bg_pid = p->pid;
+    int k = kill(p->pid, SIGCONT);
+    if (k == -1) {
+        perror("error");
+        return -1;
+    }
+    update(p, p->pid, 2);
+    return 1;
+}
 
 //execute process in the background
 int execute_bg(char *path, char *command) {
@@ -711,20 +745,21 @@ int execute(char *path, char *command_line) {
             cur_fg_cmd = NULL;
             if (can_wait == 1) latest_jobid = -1;
         }
+
     }
     return 1;
+
 }
 
-char* concat(const char *s1, const char *s2)
-{
+char *concat(const char *s1, const char *s2) {
     const size_t len1 = strlen(s1);
     const size_t len2 = strlen(s2);
-    char *result = malloc(len1+len2+1);//+1 for the null-terminator
-    //in real code you would check for errors in malloc here
+    char *result = malloc(len1 + len2 + 1);//+1 for the null-terminator
     memcpy(result, s1, len1);
-    memcpy(result+len1, s2, len2+1);//+1 to copy the null-terminator
+    memcpy(result + len1, s2, len2 + 1);//+1 to copy the null-terminator
     return result;
 }
+
 //dispatch the command to any one of functions for execution.
 void executor(char *line) {
     int fg_jobid = is_fg(line);
@@ -738,30 +773,67 @@ void executor(char *line) {
                 perror("error");
             }
         } else {
-            if (send_to_background(bg_jobid) == -1) {
+            if (send_to_bg(bg_jobid) == -1) {
                 printf("No such process!\n");
             }
             return;
         }
     } else {
-        if (send_to_foreground(fg_jobid) == -1) {
+        if (send_to_fg(fg_jobid) == -1) {
             printf("No such process!\n");
         }
         return;
     }
 }
-    
 
-void removeSubstring(char *s,const char *toremove)
-{
-  while( s=strstr(s,toremove) )
-    memmove(s,s+strlen(toremove),1+strlen(s+strlen(toremove)));
+
+void removeSubstring(char *s, const char *toremove) {
+    while (s = strstr(s, toremove))
+        memmove(s, s + strlen(toremove), 1 + strlen(s + strlen(toremove)));
 }
-static void remove_leading_spaces(char** line)
-{  
-   int i;
-   for(i = 0; (*line)[i] == ' '; i++);     
-   *line = *line + i;
+
+static void remove_leading_spaces(char **line) {
+    int i;
+    for (i = 0; (*line)[i] == ' '; i++);
+    *line = *line + i;
+}
+
+char *trim(char *str) {
+    size_t len = 0;
+    char *frontp = str;
+    char *endp = NULL;
+
+    if (str == NULL) { return NULL; }
+    if (str[0] == '\0') { return str; }
+
+    len = strlen(str);
+    endp = str + len;
+
+    /* Move the front and back pointers to address the first non-whitespace
+     * characters from each end.
+     */
+    while (isspace((unsigned char) *frontp)) { ++frontp; }
+    if (endp != frontp) {
+        while (isspace((unsigned char) *(--endp)) && endp != frontp) {}
+    }
+
+    if (str + len - 1 != endp)
+        *(endp + 1) = '\0';
+    else if (frontp != str && endp == frontp)
+        *str = '\0';
+
+    /* Shift the string so that it starts at str so that if it's dynamically
+     * allocated, we can still free it on the returned pointer.  Note the reuse
+     * of endp to mean the front of the string buffer now.
+     */
+    endp = str;
+    if (frontp != str) {
+        while (*frontp) { *endp++ = *frontp++; }
+        *endp = '\0';
+    }
+
+
+    return str;
 }
 
 //constantly listen to command line input and send the input to executor for execution
@@ -824,9 +896,9 @@ void ruby_listener() {
                 if (strcmp(tempo, "history") == 0) {
                     retrieve_all_histories(hist);
                 } else if (strstr(tempo, "history") != NULL && strcmp(tempo, "history") != 0) {
-                    print_history_item(hist, tempo, 1);
+                    // print_history_item(hist, tempo, 1);
+                    print_n_histories(hist, tempo);
                 } else if (strstr(tempo, "issue") != NULL) {
-
                     char *rob = retrieve_issue_cmd(hist, tempo);
                     executor(rob);
                 } else
@@ -835,56 +907,49 @@ void ruby_listener() {
                 printf("%s\n", "No such command exists");
             }
         } else if (strstr(line, "rmp") != NULL) {
-//             system("ls > rob.txt");
-//             FILE *fp;
-//             long lSize;
-//             char *buffer;
-//             fp = fopen("rob.txt", "rb");
-//             if (!fp) perror("rob.txt"), exit(1);
-//             fseek(fp, 0L, SEEK_END);
-//             lSize = ftell(fp);
-//             rewind(fp);
-
-// /* allocate memory for entire content */
-//             buffer = calloc(1, lSize + 2);
-//             if (!buffer) fclose(fp), fputs("memory alloc fails", stderr), exit(1);
-
-// /* copy the file into the buffer */
-//             if (1 != fread(buffer, lSize, 1, fp))
-//                 fclose(fp), free(buffer), fputs("entire read fails", stderr), exit(1);
-
-// /* do your work here, buffer is a string contains the whole text */
-            
             char *p = strrchr(line, ' ');
-	    	// printf("%s\n",buffer);
-			if(strstr(line,"-e1")!=NULL)
-			{
-				if (p && *(p + 1))
-				{
-					executor(concat("rm $(ls -I \"*.",concat(p+1,"\")" )));
-					// executor("rm -f rob.txt");
-				}
-	    	}
-	    	else if(strstr(line,"-e2")!=NULL)
-	    	{
-	    		char *md =strstr(line,"-e2");
-	    		removeSubstring(md,"-e2");
-	    		executor(concat(concat("mv ",md)," ../"));
-	    		executor("rm -f *");
-	    		char assign[strlen(pwd)];
-	    		strcpy(assign,pwd);
-	    		executor("cd ..");
-	    		// printf("%s\n",assign );
-	    		char *p=strrchr(assign,'/');
-	    		p++;
-	    		executor(concat(concat("mv ",md),concat(" ",p)));
+            // printf("%s\n",buffer);
+            if (strstr(line, "-e1") != NULL) {
+                if (p && *(p + 1)) {
+                    executor(concat("rm $(ls -I \"*.", concat(p + 1, "\")")));
+                    // executor("rm -f rob.txt");
+                }
+            } else if (strstr(line, "-e2") != NULL) {
+                char *md = strstr(line, "-e2");
+                removeSubstring(md, "-e2");
+                executor(concat(concat("mv ", md), " ../"));
+                executor("rm -f *");
+                char assign[strlen(pwd)];
+                strcpy(assign, pwd);
+                executor("cd ..");
+                // printf("%s\n",assign );
+                char *p = strrchr(assign, '/');
+                p++;
+                executor(concat(concat("mv ", md), concat(" ", p)));
+                executor(concat("cd ",p));
 
-	    	}	
+            }
 
             // fclose(fp);
             // free(buffer);
-        } else
+        } else if (isdigit(line[strlen(trim(line)) - 1])) {
+            global_time_flag = true;
+            double val = get_double(line);
+            char *md = trim(line);
+            int i = strlen(md) - 1;
+            while (isdigit(md[i]) || (isdigit(md[i - 1]) && md[i] == '.')) {
+                md[i] = '\0';
+                --i;
+            }
+            // printf("%s\n",md );
+            // printf("%lf\n",val);
+            char *buff = malloc(40 * sizeof(char));
+            sprintf(buff, "%lf", val);
+            executor(concat(concat("timeout ", buff), concat(" ", md)));
+        } else {
+            global_time_flag = false;
             executor(line);
+        }
     } while (status);
 }
 
