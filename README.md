@@ -31,7 +31,7 @@ Note: *Any lower version may result in underfined behaviour including compilatio
   ```
 
 
-## **Bash commands supported **
+## **Bash commands supported**
 
 - ls
 - cd (All types)
@@ -47,6 +47,27 @@ redirection operators > and < to redirect the input and ouput of the
 program to indicated files)
 - exit 
 and all other basic bash commands
+
+## **Custom commands implemented**
+
+ -rmp (with -e1 and -e2 flags)
+  -e1 
+  ```
+  rmp -e1 extension
+  ```
+  Deletes all files in directory except the files with the given extension.
+
+  -e2
+
+  ```
+  rmp -e2 <list_of_files> 
+  ```
+  Deletes all files in the current directory except those in the list.
+
+  ```
+  <program_name> m
+  ```
+  ```<program_name> ```m creates a child process to execute program_name, but aborts the process if it does not complete its operation in m seconds by delivering proper message. 
 
 
 ## **Fallback Compilation Instructions if 'make' fails**
