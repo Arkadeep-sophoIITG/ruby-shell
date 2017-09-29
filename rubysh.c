@@ -741,11 +741,15 @@ int execute(char *path, char *command_line) {
             strcpy(cur_fg_cmd, command_line);
             int exit_status;
             while (can_wait == 1 && waitpid(child_pid, &exit_status, WUNTRACED) > 0) {}
+            if(exit_status==31744)
+            {
+                printf("%s\n","Process aborted due to timeout" );
+            }
             cur_fg_pid = -1;
             cur_fg_cmd = NULL;
             if (can_wait == 1) latest_jobid = -1;
         }
-
+        
     }
     return 1;
 
