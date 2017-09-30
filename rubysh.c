@@ -1,6 +1,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
@@ -8,11 +13,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <regex.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <time.h>
 
 #define _XOPEN_SOURCE 500
 #define  _POSIX_C_SOURCE 200809L
@@ -311,18 +311,7 @@ char *retrieve_issue_cmd(history_list *h, char *command) {
         ++i;
         temp = temp->next;
     }
-    // printf("%s\n", array[command[strlen(command)-1]-'0'-1]);
-    // strcpy(command,array[command[strlen(command)-1]-'0'-1]);
-    // for (int i = 0; i < h->size-1; ++i)
-    // {
-    //  printf("%s\n",array[i] );
-    // }
     strcpy(command, array[extract_integer(command) - 1]);
-    // while(strstr(command,"issue")!=NULL)
-    // {
-    //  char *s=array[command[strlen(command)-1]-'0'-1];
-    //  strcpy(command,s);
-    // }
     for (int i = 0; i < h->size - 1; ++i) {
         /* code */
         free(array[i]);
@@ -414,9 +403,7 @@ void clear(pjid_list *l) {
     while (temp != l->tail) {
         proc_info *del_node = temp;
         temp = temp->next;
-        // free(del_node);
     }
-    // free(temp);
     cur_fg_pid = -1;
     job_id = 0;
 }
@@ -531,7 +518,7 @@ int is_bg(char *line) {
 
 
 //handler for Ctrl-Z (SIGTSTP signal)
-void my_sigtstp_handler(int signo) {
+void custom_made_sigtstp_handler(int signo) {
     can_wait = 0;
     if (cur_fg_pid == -1) {
         return;
@@ -559,7 +546,7 @@ void my_sigtstp_handler(int signo) {
 }
 
 //handler for Ctrl-C (SIGINT signal)
-void my_sigint_handler(int sig_number) {
+void custom_made_sigint_handler(int sig_number) {
     can_wait = 0;
     if (cur_fg_pid != -1) {
         kill(cur_fg_pid, SIGKILL);
@@ -743,7 +730,7 @@ int execute(char *path, char *command_line) {
             while (can_wait == 1 && waitpid(child_pid, &exit_status, WUNTRACED) > 0) {}
             if(exit_status==31744)
             {
-                printf("%s\n","Process aborted due to timeout" );
+                printf("\n%s\n","Process aborted due to timeout" );
             }
             cur_fg_pid = -1;
             cur_fg_cmd = NULL;
@@ -759,7 +746,7 @@ char *concat(const char *s1, const char *s2) {
     const size_t len1 = strlen(s1);
     const size_t len2 = strlen(s2);
     char *result = malloc(len1 + len2 + 1);//+1 for the null-terminator
-    memcpy(result, s1, len1);
+    memcpy(result, s1, len1);       
     memcpy(result + len1, s2, len2 + 1);//+1 to copy the null-terminator
     return result;
 }
@@ -873,23 +860,17 @@ void ruby_listener() {
         }
 
         //Code for command history
-        if (strcmp(line, "history") == 0) {
+        if (strcmp(trim(line), "history") == 0) {
             retrieve_all_histories(hist);
         }
 
-            /* Code for command history n...
-             Would only work for history n where n is a single digit integer
-               try to make it for multiple digit numbers*/
-        else if (strstr(line, "history") != NULL && strcmp(line, "history") != 0) {
+            /* Code for command history n.*/
+        else if (strstr(trim(line), "history") != NULL && strcmp(trim(line), "history") != 0) {
             // print_history_item(hist,line,1);
             print_n_histories(hist, line);
         }
 
-            /* code for issue n
-            Problems: wouldn't work for more than 2 nested issue
-            statements and for n >9 (would only for single digit no.s)
-            Revamp the code dude*/
-
+            /* code for issue n */
         else if (strstr(line, "issue") != NULL) {
             char *tempo = print_history_item(hist, line, 0);
             char assign[strlen(tempo) + 1];
@@ -910,7 +891,10 @@ void ruby_listener() {
             } else {
                 printf("%s\n", "No such command exists");
             }
-        } else if (strstr(line, "rmp") != NULL) {
+        } 
+
+        //Cool custom comand rmp (flags -e1 && -e2)
+        else if (strstr(line, "rmp") != NULL) {
             char *p = strrchr(line, ' ');
             // printf("%s\n",buffer);
             if (strstr(line, "-e1") != NULL) {
@@ -936,7 +920,11 @@ void ruby_listener() {
 
             // fclose(fp);
             // free(buffer);
-        } else if (isdigit(line[strlen(trim(line)) - 1])) {
+        } 
+        
+        //Code for <program_name> n
+
+        else if (isdigit(line[strlen(trim(line)) - 1])) {
             global_time_flag = true;
             double val = get_double(line);
             char *md = trim(line);
@@ -946,17 +934,21 @@ void ruby_listener() {
                 --i;
             }
             // printf("%s\n",md );
-            // printf("%lf\n",val);
+            // printf("%lf\n",val); 
             char *buff = malloc(40 * sizeof(char));
             sprintf(buff, "%lf", val);
             executor(concat(concat("timeout ", buff), concat(" ", md)));
-        } else {
+        }
+
+        //Code for all other basic bash commands
+         else {
             global_time_flag = false;
             executor(line);
         }
     } while (status);
 }
 
+//Cool welcome message
 void
 print_login_message() {
     printf("                __\n");
@@ -975,8 +967,8 @@ int main() {
     execute("/bin/sh", "clear");
 
     //specifying a signal handler
-    signal(SIGINT, my_sigint_handler);
-    signal(SIGTSTP, my_sigtstp_handler);
+    signal(SIGINT, custom_made_sigint_handler);
+    signal(SIGTSTP, custom_made_sigtstp_handler);
 
     //initializing present_working_directory
     strcpy(pwd, getcwd(pwd, 1000));
