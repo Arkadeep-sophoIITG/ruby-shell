@@ -1,10 +1,6 @@
 # **Rubyshell**
 ===============
 
-## **Team Mates**
-- Arpan Gupta
-- Rishabh Agarwal 
-
 ## **Software Requirements**
 - GCC version 5.2.0 and upwards
 - The code is tested with gcc version 6.3.0
@@ -35,68 +31,81 @@ Note: *Any lower version may result in underfined behaviour including compilatio
 ## **Bash commands supported**
 
 - ls
-- cd (All types)
+- cd
+  - ```cd <dir_name>```
+  - ```cd ..```
+  - ```cd / ```
+  -	```cd ./dir_name```
 - pwd
 - cat
 - cp
 - mv
 - find
 - mkdir
-- rm (-r, -f, -v)
-- history (retrieves history of all user commands)
-- history n (prints the most recent n commands issued by the numbers)
-- issue n (issues the nth command in the history once again)
-- <program_name> (Creates a child process to run <program_name>.
-  Also supports Input/Output Redirection Operators < , > , >> , |)
+- rm
+  - ```rm -r <dir_name>```
+  - ```rm -f <file_name>```
+  - ```rm -i *```
+  - ```rm -v <file_name>```
+  - ```rm --help```
+- history 
+  - retrieves history of all user commands.
+- history n 
+  - prints the most recent n commands issued by the numbers.
+- issue n 
+  - issues the nth command in the history once again.
+- <program_name> 
+  - Creates a child process to run ```<program_name>```
+- Also supports Input/Output Redirection Operators < , > , >> , |
 - exit 
-and all other basic bash commands
+	and all other basic bash commands.
 
 ## **Custom commands implemented**
 
- -rmp (with -e1 and -e2 flags)
+ * rmp (with -e1 and -e2 flags)
 
-  -e1 
+ - -e1 
 
   ```
   rmp -e1 extension
   ```
   Deletes all files in directory except the files with the given extension.
 
-  -e2
+ - -e2
 
   ```
   rmp -e2 <list_of_files> 
   ```
-  Deletes all files in the current directory except those in the list.
+  	Deletes all files in the current directory except those in the list. 
 
   ```
   <program_name> m
   ```
-  ```<program_name> ```m creates a child process to execute program_name, but aborts the process if it does not complete its operation in m seconds by delivering proper message. 
+  	<program_name> m creates a child process to execute program_name, but aborts the process if it does not complete its operation in m seconds by delivering proper message. 
 
 
 ## **Code walkthrough**
   
-  -Appropriate comments are used all throughout to enhance code readability.
+   	Note: *Appropriate comments are used all throughout to enhance code readability*
  
-  -The entire flow of the shell is controlled from function ```ruby_listener()``` which constantly listens for command-line input
+  - The entire flow of the shell is controlled from function ```ruby_listener()``` which constantly listens for command-line input
    ,parses the input and sends it to executor() or calls appropriate functions to handle execution.
 
-  -The ```executor(char *)``` function dispatches the command to any of the function ```execute(char *,char *)``` and ```execute_bg
+  - The ```executor(char *)``` function dispatches the command to any of the function ```execute(char *,char *)``` and  ```execute_bg
    (char *,char *)``` or handles error in case process is non-existent.
 
-  -Job control is implemented efficiently through ```is_fg(char *)```  ```is_bg(char *)``` [Note : these functions use Perl regex
+  - Job control is implemented efficiently through ```is_fg(char *)```  ```is_bg(char *)``` [Note : these functions use Perl regex
    library which is deprecated and throws segmentation faults in few cases] , ```send_to_bg(int)``` and ```send_to_fg(int)```
    functions.
 
-  -Two user-defined structures are implemented ```proc_info``` (process structure) and ```history_info``` (history structure)
+  - Two user-defined structures are implemented ```proc_info``` (process structure) and ```history_info``` (history structure)
    along with ```pjid_list``` (process jobs list) and ```history_list``` (list of histories) along with many helper functions
    insert,search,update,clear and so on to perform appropriate tasks (as mentioned in the comments).
 
-  -Ctrl+C (SIGINT signal) handler is implemented through ```custom_made_sigint_handler(int)``` .
-  -Ctrl+Z (SIGTSTP signal) handler is implemented through ```custom_made_sigtstp_handler(int)``` .
+  - Ctrl+C (SIGINT signal) handler is implemented through ```custom_made_sigint_handler(int)``` .
+  - Ctrl+Z (SIGTSTP signal) handler is implemented through ```custom_made_sigtstp_handler(int)``` .
 
-  -History of user commands is retrieved through ```retrieve_all_histories(history_list *)``` , history n is implemented
+  - History of user commands is retrieved through ```retrieve_all_histories(history_list *)``` , history n is implemented
    through ```print_n_histories(history_list *,char *)``` and issue n is implemented through 
    ```retrieve_issue_cmd(history_list *,char *)``` . 	
 
@@ -130,14 +139,23 @@ NOTE: *SKIP THIS SECTION IF make was successful i.e. if make did not throw error
   execution it goes into an infinite loop. You will need to hit <Ctrl-C> to get back the prompt.
 
 ## **References**
- -Cornell CS414 Summer 2004 by Jeanna Matthews
- -"Parse.c" assignment
- -"Writing Your Own Shell" assignment
- -GNU History Library
- -Bash source code
- -Implementing a Job Control Shell
- -The C Programming Language, 2nd Edition
- Links:
+
+ * Cornell CS414 Summer 2004 by Jeanna Matthews
+
+ - "Parse.c" assignment
+ 
+ - "Writing Your Own Shell" assignment
+ 
+ - GNU History Library
+ 
+ - Bash source code
+ 
+ - Implementing a Job Control Shell
+ 
+ - The C Programming Language, 2nd Edition
+ 
+ - Links:
+		
 	http://stackoverflow.com/questions/19814906/which-child-process-send-sigchld
 	http://stackoverflow.com/questions/2595503/determine-pid-of-terminated-process
 	http://stackoverflow.com/questions/12587621/signal-handler-sa-sigaction-arguments
@@ -214,3 +232,5 @@ NOTE: *SKIP THIS SECTION IF make was successful i.e. if make did not throw error
 	http://www.cs.cornell.edu/Courses/cs414/2004su/homework/shell/shell.html
 	http://brennan.io/2015/01/16/write-a-shell-in-c/
 	http://stackoverflow.com/questions/1500004/how-can-i-implement-my-own-basic-unix-shell-in-c
+
+Note: *Please follow the instructions given in instructions.txt to view this Readme.md file*
