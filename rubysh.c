@@ -924,7 +924,7 @@ void ruby_listener() {
         
         //Code for <program_name> n
 
-        else if (isdigit(line[strlen(trim(line)) - 1])) {
+        else if (isdigit(line[strlen(trim(line)) - 1]) && strstr(line,"mkdir ")==NULL && strstr(line,"cd ")==NULL && strstr(line,"touch ")==NULL && strstr(line,"rm ")==NULL) {
             global_time_flag = true;
             double val = get_double(line);
             char *md = trim(line);
