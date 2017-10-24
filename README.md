@@ -1,6 +1,25 @@
 # **Rubyshell**
 ===============
 
+## **The Team**
+- Arkadeep Das (150123053)
+  
+  - Helmed the project, wrote the basic shell from scratch supporting all bash commands like```cd``` , ```rm``` as listed below.
+  - Designed and implemented job control feature in shell.
+  - Implemented both the advanced features in the shell (```rmp -e1 ``` , ```rmp -e2``` and ```<prog_name> m```). 
+  - Implemented ```history n``` and ```issue n``` commands.
+  - Lastly, made Readme.md and Makefile. 
+
+- Arpan Gupta (150123005)
+  
+  - Provided valuable insight regarding implementing basic features into the shell (commands like ```cat```,```exit```). 
+  - Helped in building the documentation. 
+
+- Rishabh Agrawal (150123032)
+  
+  - Provided valuable insight regarding implementing basic features into the shell (commands like ```ls```,```exit```). 
+  - Implemented ```history``` and ```issue n``` commands. 
+
 ## **Software Requirements**
 - GCC version 5.2.0 and upwards
 - The code is tested with gcc version 6.3.0
